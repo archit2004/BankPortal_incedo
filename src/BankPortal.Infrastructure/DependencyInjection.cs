@@ -5,6 +5,8 @@ using BankPortal.Application.FixedDeposits;
 using BankPortal.Infrastructure.FixedDeposits;
 using BankPortal.Application.Jobs;
 using BankPortal.Infrastructure.Jobs;
+using BankPortal.Application.Admin;
+using BankPortal.Infrastructure.Admin;
 using BankPortal.Infrastructure.Identity;
 using BankPortal.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -42,6 +44,7 @@ public static class DependencyInjection
         services.AddScoped<IFixedDepositService, FixedDepositService>();
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<IInterestJobService, InterestJobService>();
+        services.AddScoped<IAdminService, AdminService>();
         services.Configure<JobOptions>(config.GetSection("Jobs"));
         services.AddHostedService<InterestBackgroundService>();
 
