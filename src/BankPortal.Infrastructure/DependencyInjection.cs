@@ -1,6 +1,8 @@
 using BankPortal.Application.Accounts;
 using BankPortal.Application.Auth;
 using BankPortal.Infrastructure.Accounts;
+using BankPortal.Application.FixedDeposits;
+using BankPortal.Infrastructure.FixedDeposits;
 using BankPortal.Infrastructure.Identity;
 using BankPortal.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -35,6 +37,8 @@ public static class DependencyInjection
         services.AddScoped<TokenService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IAccountService, AccountService>();
+        services.AddScoped<IFixedDepositService, FixedDepositService>();
+        services.AddSingleton(TimeProvider.System);
 
         return services;
     }
