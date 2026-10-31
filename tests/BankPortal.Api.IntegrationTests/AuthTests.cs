@@ -70,7 +70,9 @@ public class AuthTests(ApiFactory factory) : IntegrationTestBase(factory)
 
         Assert.Equal(HttpStatusCode.Unauthorized, wrong.StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, unknown.StatusCode);
-        Assert.Equal(await wrong.Content.ReadAsStringAsync(), await unknown.Content.ReadAsStringAsync());
+        var wrongTitle = (await wrong.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("title").GetString();
+        var unknownTitle = (await unknown.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("title").GetString();
+        Assert.Equal(wrongTitle, unknownTitle);
     }
 
     [Fact]

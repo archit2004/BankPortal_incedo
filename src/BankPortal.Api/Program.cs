@@ -1,10 +1,13 @@
 using System.Text;
 using System.Threading.RateLimiting;
+using BankPortal.Api.Health;
 using BankPortal.Api.Middleware;
 using BankPortal.Application.Auth;
 using BankPortal.Infrastructure;
 using BankPortal.Infrastructure.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 
@@ -16,6 +19,22 @@ builder.Services.AddInfrastructure(builder.Configuration);
 
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+
+builder.Services.AddHealthChecks()
+    .AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);
+
+// Only trust X-Forwarded-* when the API runs behind our own reverse proxy (nginx in Compose).
+// The API port must not be reachable directly in that mode, otherwise clients could spoof their IP.
+var behindProxy = builder.Configuration.GetValue<bool>("ForwardedHeaders:Enabled");
+if (behindProxy)
+{
+    builder.Services.Configure<ForwardedHeadersOptions>(o =>
+    {
+        o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        o.KnownNetworks.Clear();
+        o.KnownProxies.Clear();
+    });
+}
 
 // Auth endpoints are limited per client IP, so one noisy client cannot lock everyone else out.
 var authPermitPerMinute = builder.Configuration.GetValue("RateLimit:AuthPermitPerMinute", 10);
@@ -61,20 +80,35 @@ builder.Services.AddAuthorizationBuilder()
 
 var app = builder.Build();
 
+if (behindProxy) app.UseForwardedHeaders();     // must be first so the rate limiter sees the real client IP
+app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseExceptionHandler();
 
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment()) app.MapOpenApi();
+
+// Roles and the admin user: always in Development, in other environments only when Seed:OnStartup=true.
+// Idempotent. A failure is logged and never stops the API from starting.
+if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Seed:OnStartup"))
 {
-    app.MapOpenApi();
-    using var scope = app.Services.CreateScope();
-    await IdentitySeeder.SeedAsync(scope.ServiceProvider);
+    try
+    {
+        using var scope = app.Services.CreateScope();
+        await IdentitySeeder.SeedAsync(scope.ServiceProvider);
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "Seeding roles and the admin user failed.");
+    }
 }
 
-app.UseHttpsRedirection();
+if (!behindProxy) app.UseHttpsRedirection();    // behind the proxy, TLS ends at the proxy
 app.UseRateLimiter();
 app.UseAuthentication();     // must come before UseAuthorization
 app.UseAuthorization();
 app.MapControllers();
+
+app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
+app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = r => r.Tags.Contains("ready") });
 
 app.Run();
 

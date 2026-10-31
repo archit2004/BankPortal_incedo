@@ -22,10 +22,22 @@ public class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger) : IE
             _ => (StatusCodes.Status500InternalServerError, "An unexpected error occurred.")
         };
 
-        if (status >= 500) logger.LogError(ex, "Unhandled exception");
+        // Only unexpected failures are errors. Expected business outcomes must not trip error alerts
+        // or bury real problems. Failed logins are warnings because they matter for security monitoring.
+        if (status >= 500)
+            logger.LogError(ex, "Unhandled exception on {Method} {Path}", ctx.Request.Method, ctx.Request.Path);
+        else if (status is 401 or 423 or 429)
+            logger.LogWarning("{Method} {Path} -> {Status}: {Title}", ctx.Request.Method, ctx.Request.Path, status, title);
+        else
+            logger.LogInformation("{Method} {Path} -> {Status}: {Title}", ctx.Request.Method, ctx.Request.Path, status, title);
 
         ctx.Response.StatusCode = status;
-        await ctx.Response.WriteAsJsonAsync(new ProblemDetails { Status = status, Title = title }, ct);
+        await ctx.Response.WriteAsJsonAsync(new ProblemDetails
+        {
+            Status = status,
+            Title = title,
+            Extensions = { ["correlationId"] = ctx.TraceIdentifier }
+        }, ct);
         return true;
     }
 }
