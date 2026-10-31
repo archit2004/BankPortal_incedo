@@ -116,7 +116,7 @@ public class InterestJobService(BankDbContext db, TimeProvider clock, ILogger<In
             }
             catch (DbUpdateConcurrencyException) when (attempt < MaxAttempts) { }
             catch (DbUpdateException ex) when (attempt < MaxAttempts
-                && ex.InnerException is SqlException { Number: 2601 or 2627 }) { }
+                && ex.InnerException is SqlException { Number: 1205 or 2601 or 2627 }) { }
         }
     }
 }

@@ -101,7 +101,7 @@ public class FixedDepositService(BankDbContext db, TimeProvider clock) : IFixedD
             }
             catch (DbUpdateConcurrencyException) when (attempt < MaxAttempts) { }
             catch (DbUpdateException ex) when (attempt < MaxAttempts
-                && ex.InnerException is SqlException { Number: 2601 or 2627 }) { }
+                && ex.InnerException is SqlException { Number: 1205 or 2601 or 2627 }) { }
         }
     }
 
@@ -147,7 +147,7 @@ public class FixedDepositService(BankDbContext db, TimeProvider clock) : IFixedD
             }
             catch (DbUpdateConcurrencyException) when (attempt < MaxAttempts) { }
             catch (DbUpdateException ex) when (attempt < MaxAttempts
-                && ex.InnerException is SqlException { Number: 2601 or 2627 }) { }
+                && ex.InnerException is SqlException { Number: 1205 or 2601 or 2627 }) { }
         }
     }
 

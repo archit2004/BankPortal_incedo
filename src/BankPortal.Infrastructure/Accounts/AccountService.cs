@@ -105,7 +105,7 @@ public class AccountService(BankDbContext db) : IAccountService
                 // Someone else changed this account first: reload and re-evaluate (balance check runs again).
             }
             catch (DbUpdateException ex) when (attempt < MaxAttempts
-                && ex.InnerException is SqlException { Number: 2601 or 2627 })
+                && ex.InnerException is SqlException { Number: 1205 or 2601 or 2627 })
             {
                 // Same key submitted concurrently: loop again, the replay branch will find it.
             }

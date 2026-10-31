@@ -1,12 +1,12 @@
-using Microsoft.AspNetCore.RateLimiting;
 using System.Text;
+using System.Threading.RateLimiting;
 using BankPortal.Api.Middleware;
 using BankPortal.Application.Auth;
 using BankPortal.Infrastructure;
 using BankPortal.Infrastructure.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
-using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,15 +17,19 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
+// Auth endpoints are limited per client IP, so one noisy client cannot lock everyone else out.
+var authPermitPerMinute = builder.Configuration.GetValue("RateLimit:AuthPermitPerMinute", 10);
 builder.Services.AddRateLimiter(o =>
 {
     o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    o.AddFixedWindowLimiter("auth", l =>
-    {
-        l.PermitLimit = 10;
-        l.Window = TimeSpan.FromMinutes(1);
-        l.QueueLimit = 0;
-    });
+    o.AddPolicy("auth", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = authPermitPerMinute,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0
+        }));
 });
 
 var jwt = builder.Configuration.GetSection(JwtOptions.Section).Get<JwtOptions>()
@@ -73,3 +77,6 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+// Makes the entry point visible to WebApplicationFactory in the integration tests.
+public partial class Program { }
