@@ -62,6 +62,7 @@ services:
       Jobs__RunAtIst: "01:00"
       Logging__Console__FormatterName: json
       Logging__Console__FormatterOptions__IncludeScopes: "true"
+      Logging__LogLevel__Microsoft.EntityFrameworkCore.Database.Command: Warning
     # No published port: only the web container (nginx) can reach the API.
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8080/health/ready || exit 1"]
